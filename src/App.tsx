@@ -1,4 +1,3 @@
-
 // src/App.tsx
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 
@@ -19,14 +18,14 @@ function App() {
       <Routes>
         {/* Ruta pública: Home */}
         <Route path="/" element={<HomePage />} />
-        
+
         {/* Ruta pública: Login */}
         <Route path="/login" element={<LoginPage />} />
-        
+
         {/* Ruta protegida (futuro): Curso */}
         {/* Usamos :lessonId como parámetro dinámico en la URL */}
         <Route path="/course/:lessonId" element={<CoursePage />} />
-        
+
         {/* Ruta protegida (futuro): Instructor */}
         <Route path="/instructor" element={<InstructorPage />} />
 

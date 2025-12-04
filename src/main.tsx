@@ -1,8 +1,9 @@
 // src/main.tsx
-import React from 'react'
-import ReactDOM from 'react-dom/client'
-import App from './App'
-import './styles/global.css'
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import App from './App';
+import './styles/global.css';
+import { AuthProvider } from '@/context/AuthContext';
 
 // Validación de seguridad: asegurar que existe el elemento root
 const rootElement = document.getElementById('root');
@@ -13,6 +14,8 @@ if (!rootElement) {
 
 ReactDOM.createRoot(rootElement).render(
   <React.StrictMode>
-    <App />
-  </React.StrictMode>,
-)
+    <AuthProvider>
+      <App />
+    </AuthProvider>
+  </React.StrictMode>
+);
