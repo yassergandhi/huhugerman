@@ -1,112 +1,116 @@
 # resilient-api-integration-demo
 
-> **"Si no puedes reproducir el error, no puedes resolverlo."**
+**Chaos engineering diagnostic trainer for SaaS support workflows.**
 
-**Estado:** DEMO ACTIVO · Entorno de diagnóstico · Recruiter-facing  
-**Demo en vivo:** [huhugerman-demo-cse.netlify.app](https://huhugerman-demo-cse.netlify.app/)  
+> **"If you cannot reproduce the error, you cannot resolve it."**
+
+**Status:** ACTIVE DEMO · Diagnostic environment · Recruiter-facing  
+**Live demo:** [huhugerman-demo-cse.netlify.app](https://huhugerman-demo-cse.netlify.app/)  
 **Stack:** React · TypeScript · Tailwind CSS · Chaos Engineering patterns
 
 ---
 
-## Qué es este repositorio
+## What This Repository Solves
 
-Este repositorio es una aplicación de diagnóstico que simula condiciones de producción reales — errores 401, 500, 404, latencia variable, jitter de red — para demostrar cómo se investigan, reproducen y documentan problemas de integración en entornos SaaS.
+In SaaS support, the problem is not that production errors are hard to resolve — it is that they are hard to **reproduce**. Customers report "something doesn't work" without logs, traces, or context. Support teams lack backend access. Engineering teams lack time to investigate every ticket.
 
-Originalmente, el sistema huhuGERMAN tenía un módulo de carga de lecciones que experimentaba estos errores con usuarios reales. Este demo aísla ese módulo, lo instrumenta con observabilidad explícita y lo convierte en un entorno controlado de diagnóstico.
+A senior Customer Success Engineer needs to:
+1. Reproduce the error in a controlled environment
+2. Identify the failure type without backend access
+3. Document it with sufficient context for L2 escalation
+4. Propose an immediate solution or workaround
 
----
-
-## Por qué existe: el problema que resuelve en Customer Success Engineering
-
-En soporte técnico de SaaS, el problema más común no es que el error sea difícil de resolver — es que es difícil de **reproducir**. Los clientes reportan "algo no funciona" sin logs, sin trazas, sin contexto. El equipo de soporte no tiene acceso al backend del cliente. El equipo de ingeniería no tiene tiempo de revisar cada ticket.
-
-Un CSE senior necesita:
-1. Reproducir el error de manera controlada
-2. Identificar el tipo de error sin acceso al backend
-3. Documentarlo con suficiente contexto para ingeniería
-4. Proponer una solución o workaround inmediato
-
-Este demo es un entrenador para ese flujo.
+**This demo is a trainer for that workflow.**
 
 ---
 
-## Inyección de caos: cómo funciona
+## The Real Origin: huhuGERMAN Production
 
-El módulo `lessonApi.ts` implementa tres escenarios de fallo controlados:
+The huhuGERMAN system operated with real students at UAM for 15 years. The lesson-loading module experienced these failures daily: 401 token expirations, 500 upstream timeouts, 404 resource misconfigurations, variable latency from Mexico City to Germany.
+
+This demo isolates that module, instruments it with explicit observability, and converts it into a controlled diagnostic environment. The failure patterns are not hypothetical — they are the distillation of real errors that affected real users, resolved and documented.
+
+---
+
+## How Chaos Injection Works
+
+The `lessonApi.ts` module implements three controlled failure scenarios:
 
 ```typescript
-// Escenario A: Fallo crítico de upstream (simula timeout de DB)
-// Status 500 · Mensaje de error estructurado · Suggestion para L2
+// Scenario A: Critical upstream failure (simulates database timeout)
+// Status 500 · Structured error message · L2 escalation guidance
 {
-  message: "Internal Server Error: Upstream service unavailable",
   status: 500,
+  error: "Internal Server Error: Upstream service unavailable",
   requestId: generateRequestId(),
-  suggestion: "Check database connection pool. Escalate to L2 if persists."
+  suggestion: "Check database connection pool. If persistent >2min, escalate to L2."
 }
 
-// Escenario B: Expiración de sesión / autenticación
-// Status 401 · Guía de remediación para el cliente
+// Scenario B: Session expiration / authentication
+// Status 401 · Client remediation pathway
 {
-  message: "Authentication token expired",
   status: 401,
+  error: "Authentication token expired",
   requestId: generateRequestId(),
-  suggestion: "Refresh token or re-authenticate. Common in mobile sessions > 24h."
+  suggestion: "Refresh token or re-authenticate. Common in mobile sessions idle >24h."
 }
 
-// Escenario C: Error de configuración del cliente
-// Status 404 · Indica dónde está el problema
+// Scenario C: Client configuration error
+// Status 404 · Indicates where the problem lives
 {
-  message: "Lesson not found",
   status: 404,
+  error: "Lesson not found",
   requestId: generateRequestId(),
-  suggestion: "Verify lesson ID in course configuration. This is a client-side config issue."
+  suggestion: "Verify lesson ID in course configuration. This is a client-side config issue, not backend."
 }
 ```
 
-**20% de requests fallan intencionalmente.** Esto fuerza al sistema a demostrar manejo de errores, lógica de retry y comunicación de estado al usuario.
+**20% of requests fail intentionally.** This forces the system to demonstrate error handling, retry logic, and state communication under realistic failure rates.
 
 ---
 
-## Observabilidad: lo que se expone
+## Observability as a First-Class Feature
 
-Cada request genera y expone:
+Every request exposes:
 
 ```typescript
 interface ApiResponse<T> {
-  data: T;
+  data?: T;
   meta: {
-    requestId: string;   // Para correlación en logs (Splunk/Datadog)
-    latencyMs: number;   // Para diagnóstico de performance
-    status: number;      // HTTP status code expuesto al frontend
+    requestId: string;   // Traceable across sessions (Splunk/Datadog)
+    latencyMs: number;   // Visible to support without backend logs
+    status: number;      // HTTP status code exposed to frontend
   };
 }
 
 interface ApiError {
-  message: string;
   status: number;
+  error: string;
   requestId: string;
-  suggestion: string;    // Acción concreta para el troubleshooter
+  suggestion: string;    // Concrete next action for L1 support
 }
 ```
 
-El campo `suggestion` en el objeto de error es la diferencia entre un mensaje de error que genera un ticket de soporte y uno que permite al cliente (o al agente L1) resolver el problema por sí mismo.
+The `suggestion` field is the difference between an error message that generates a support ticket and one that enables the customer (or L1 agent) to resolve the issue independently.
+
+A standard error response tells the engineer what happened. The `suggestion` tells them what to do next — in language that requires no backend access to interpret.
 
 ---
 
-## Latencia simulada con jitter
+## Latency Jitter: Forcing Real Loading States
 
 ```typescript
-// Simula condiciones reales de red
-// Delay entre 300ms y 1500ms, aleatorio
+// Simulates realistic network conditions
+// Delay between 300ms and 1500ms, randomized
 const delay = 300 + Math.random() * 1200;
 await new Promise(resolve => setTimeout(resolve, delay));
 ```
 
-Esto fuerza al frontend a demostrar que sus loading states, spinners y timeouts funcionan bajo condiciones de latencia variable — no solo en el happy path.
+This forces the frontend to demonstrate that loading states, spinners, and timeout handling work under variable latency — not just in the happy path.
 
 ---
 
-## El modelo de datos del método HUHU: tipado completo
+## HUHU Method: Fully Typed Domain
 
 ```typescript
 interface Lesson {
@@ -114,72 +118,79 @@ interface Lesson {
   title: string;
   order: number;
   
-  hochdeutsch: { phrases: Array<{ german, spanish, audioId }> };
-  umgangssprache: { introText, phrases: Array<{ german, spanish, contextNote? }> };
-  halt: { title, explanation, metaphor? };
+  hochdeutsch: {
+    phrases: Array<{ german: string; spanish: string; audioId: string }>
+  };
+  umgangssprache: {
+    introText: string;
+    phrases: Array<{ german: string; spanish: string; contextNote?: string }>
+  };
+  halt: {
+    title: string;
+    explanation: string;
+    metaphor?: string;
+  };
   uebung: MultipleChoiceExercise | FillInBlankExercise;
 }
 ```
 
-El tipo `uebung` usa union discriminada: no hay ejercicios sin tipo conocido. Cada tipo de ejercicio tiene contrato completo para evaluación determinística.
+The `uebung` field uses discriminated union types: no exercise exists without a known type. Each exercise type has a complete contract for deterministic evaluation.
 
 ---
 
-## Por qué este demo es evidencia de seniority CSE
+## Why This Demonstrates Senior-Level CSE Thinking
 
-Un developer junior escribe el happy path y espera que funcione. Un CSE senior instrumenta los failure paths porque sabe que es ahí donde los clientes crean tickets.
+A junior developer writes the happy path and hopes it works. A senior CSE instruments the failure paths — because that is where customers create tickets.
 
-Este demo demuestra:
+This demo demonstrates:
 
-**Pensamiento proactivo de soporte:** Los errores no son excepciones — son estados esperados que necesitan handling explícito, mensajes útiles y trazabilidad.
+**Proactive support thinking:** Errors are not exceptions — they are expected states that require explicit handling, useful messaging, and traceability.
 
-**Observabilidad como feature:** `requestId` y `latencyMs` no son logs internos — son datos que un agente de soporte puede usar para diagnosticar sin acceso al backend del cliente.
+**Observability as product:** `requestId` and `latencyMs` are not internal logs — they are data that a support agent can use to diagnose without backend access. This is the difference between "I don't know what happened" and "Here is exactly what happened and what to do next."
 
-**Separación de responsabilidades:** El módulo de API es intercambiable. Cuando el mock se reemplaza por la API real, los componentes de UI no cambian. Este es el contrato que hace los sistemas mantenibles.
+**Separation of concerns:** The API module is replaceable. When the mock is swapped for the production API, UI components do not change. This is the contract that makes systems maintainable at scale.
 
-**Documentación como producto:** El campo `suggestion` en `ApiError` es documentación ejecutable. No es un comentario en el código — es información que llega al cliente en tiempo de error.
+**Documentation as executable code:** The `suggestion` field in `ApiError` is not a comment — it is information that reaches the customer at error time. It is documentation that runs.
 
----
-
-## Conexión con el proyecto huhuGERMAN
-
-Este demo es la extracción y aislamiento del módulo más crítico del sistema huhuGERMAN para diagnóstico y demostración. El sistema original operó con estudiantes reales en UAM, donde los errores de red, las sesiones expiradas y los recursos no encontrados eran eventos cotidianos.
-
-Las decisiones de diseño aquí no son hipotéticas — son la destilación de errores reales que afectaron usuarios reales, resueltos y documentados.
+**Failure-first design:** 20% intentional failure rate is not a bug — it is a feature. It forces the system to prove that error handling works, not just that the happy path works.
 
 ---
 
-## Uso del demo
+## Related Repositories
+
+→ **[huhugerman.com](https://huhugerman.com)** — Production system  
+→ **[feature/dynamic-lessons](https://github.com/yassergandhi/huhugerman)** — Portal with pedagogical domain  
+→ **[yassergandhi.dev](https://yassergandhi.dev)** — Professional portfolio
+
+---
+
+## Quick Start
 
 ```bash
-# Instalar dependencias
+# Install dependencies
 npm install
 
-# Servidor de desarrollo
+# Development server
 npm run dev
 
-# Build para producción
+# Production build
 npm run build
 ```
 
-Para experimentar los diferentes escenarios de error, recarga la aplicación repetidamente. El 20% de fallos es aleatorio, por lo que verás los tres tipos de error en promedio cada 5 cargas.
+To experience the different failure scenarios, reload the application repeatedly. The 20% failure rate is randomized, so you will observe all three error types within approximately 5 page loads.
 
 ---
 
-## Repositorios relacionados
+## About the Author
 
-→ **[huhugerman.com](https://huhugerman.com)** — Sistema en producción  
-→ **[feature/dynamic-lessons](https://github.com/yassergandhi/huhugerman)** — Portal con dominio pedagógico  
-→ **[yassergandhi.dev](https://yassergandhi.dev)** — Portfolio profesional
+**Yasser Gandhi Hernández Esquivel** — The Purple Squirrel of EdTech. Learning Systems Architect · AI-Driven Instructional Designer · German Language Expert C1.
 
----
-
-## Sobre el autor
-
-Yasser Gandhi Hernández Esquivel — Learning Systems Architect · AI-Driven Instructional Designer · German Language Expert C1. Especialista en la intersección entre pedagogía DaF, investigación cualitativa y sistemas de software. 15 años en docencia universitaria pública en México.
+Specialist at the intersection of DaF pedagogy, qualitative research, and software systems. 15 years in public university teaching in Mexico. This demo is the distillation of real failures from real users, resolved and documented.
 
 → [yassergandhi.dev](https://yassergandhi.dev) · [LinkedIn](https://linkedin.com/in/yassergandhi)
 
 ---
 
-*Licencia: Uso educativo. Todos los derechos reservados.*
+*License: Educational use. All rights reserved.*
+
+*HIER DARFST DU FEHLER MACHEN.*
